@@ -61,3 +61,7 @@ npm run build:mac
   、间接、附带或衍生的损失等)，[本人](https://github.com/gonggaotong) 不承担任何法律责任。
 - 用户明确并同意本声明条款列举的全部内容，对使用本工具可能存在的风险和相关后果将完全由用户自行承担
   ，[本人](https://github.com/gonggaotong) 不承担任何法律责任。
+
+# 联系我们
+- 微信：417990683
+- 邮箱：gonggaotong2024@163.com
