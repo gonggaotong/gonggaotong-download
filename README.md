@@ -12,7 +12,44 @@
 gonggaotong-download 是一个基于 `Electron` + `Vue` + `Vite` 的跨平台年报、季报、半年报等公告批量下载工具，包括美股和 A
 股。
 
-✅ A 股公告批量下载 ✅ 美股公告批量下载 ✅ PDF 批量转换 ⏳ 新三板公告批量下载 ⏳ 港股公告批量下载
+✅ A 股公告批量下载
+✅ 美股公告批量下载
+✅ PDF 批量转换
+⏳ 新三板公告批量下载
+⏳ 港股公告批量下载
+
+# 开发
+
+1. clone 项目
+```bash
+git clone https://github.com/gonggaotong/gonggaotong-download.git
+```
+
+2. 打开项目 安装依赖
+```bash
+cd gonggaotong-download
+npm install
+```
+
+3. 运行项目
+```bash
+npm run dev
+```
+
+4. 编译为软件，运行命令完成后查看`release`文件夹
+```bash
+# windows 64位
+npm run build:win64
+
+# windows 32为
+npm run build:win32
+
+# mac
+npm run build:mac
+
+```
+
+如果你要获取最新版本，请访问 **[Release](https://github.com/gonggaotong/gonggaotong-download/releases)** 页面进行下载。
 
 # 下载
 

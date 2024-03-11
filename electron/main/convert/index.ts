@@ -155,13 +155,13 @@ class PDFConverter extends EventEmitter {
 const convertTaskObj: any = new PDFConverter()
 
 convertTaskObj.on('taskStarted', task => {
-  console.log(`Task ${task._id} started`)
-  sendToRender('CONVERT-SINGLE-STARTED', { id: task._id })
+  console.log(`Task ${task?._id} started`)
+  sendToRender('CONVERT-SINGLE-STARTED', { id: task?._id })
 })
 
 convertTaskObj.on('taskFinished', task => {
-  console.log(`Task ${task._id} started`)
-  sendToRender('CONVERT-SINGLE-FINISHED', { id: task._id })
+  console.log(`Task ${task?._id} started`)
+  sendToRender('CONVERT-SINGLE-FINISHED', { id: task?._id })
 })
 
 convertTaskObj.on('allPaused', () => {
