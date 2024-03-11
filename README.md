@@ -1,71 +1,23 @@
-# electron-vite-vue
+# 免责声明
 
-🥳 Really simple `Electron` + `Vue` + `Vite` boilerplate.
+- 本工具仅作个人学习研究使用，可运行的文件仅用于演示功能，不得将源码及其产物用于商业用途，否则由此造成的相关法律问题
+  ，[本人](https://github.com/gonggaotong) 不承担任何法律责任。
+- 任何单位或个人因下载使用软件所产生的任何意外、疏忽、合约毁坏、诽谤、版权或知识产权侵犯及其造成的损失 (包括但不限于直接
+  、间接、附带或衍生的损失等)，[本人](https://github.com/gonggaotong) 不承担任何法律责任。
+- 用户明确并同意本声明条款列举的全部内容，对使用本工具可能存在的风险和相关后果将完全由用户自行承担
+  ，[本人](https://github.com/gonggaotong) 不承担任何法律责任。
 
-<!-- [![awesome-vite](https://awesome.re/mentioned-badge.svg)](https://github.com/vitejs/awesome-vite) -->
-<!-- [![Netlify Status](https://api.netlify.com/api/v1/badges/ae3863e3-1aec-4eb1-8f9f-1890af56929d/deploy-status)](https://app.netlify.com/sites/electron-vite/deploys) -->
-<!-- [![GitHub license](https://img.shields.io/github/license/caoxiemeihao/electron-vite-vue)](https://github.com/electron-vite/electron-vite-vue/blob/main/LICENSE) -->
-<!-- [![GitHub stars](https://img.shields.io/github/stars/caoxiemeihao/electron-vite-vue?color=fa6470)](https://github.com/electron-vite/electron-vite-vue) -->
-<!-- [![GitHub forks](https://img.shields.io/github/forks/caoxiemeihao/electron-vite-vue)](https://github.com/electron-vite/electron-vite-vue) -->
-[![GitHub Build](https://github.com/electron-vite/electron-vite-vue/actions/workflows/build.yml/badge.svg)](https://github.com/electron-vite/electron-vite-vue/actions/workflows/build.yml)
-[![GitHub Discord](https://img.shields.io/badge/chat-discord-blue?logo=discord)](https://discord.gg/sRqjYpEAUK)
+# 简介
 
-## Features
+gonggaotong-download 是一个基于 `Electron` + `Vue` + `Vite` 的跨平台年报、季报、半年报等公告批量下载工具，包括美股和 A
+股。
 
-📦 Out of the box  
-🎯 Based on the official [template-vue-ts](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-vue-ts), less invasive  
-🌱 Extensible, really simple directory structure  
-💪 Support using Node.js API in Electron-Renderer  
-🔩 Support C/C++ native addons  
-🖥 It's easy to implement multiple windows  
+✅ A 股公告批量下载 ✅ 美股公告批量下载 ✅ PDF 批量转换 ⏳ 新三板公告批量下载 ⏳ 港股公告批量下载
 
-## Quick Start
+# 下载
 
-```sh
-npm create electron-vite
-```
+如果你要获取最新版本，请访问 **[Release](https://github.com/gonggaotong/gonggaotong-download/releases)** 页面进行下载。
 
-<!-- [![quick-start](https://asciinema.org/a/483731.svg)](https://asciinema.org/a/483731) -->
+# 用法
 
-![electron-vite-vue.gif](/public/electron-vite-vue.gif)
-
-## Debug
-
-![electron-vite-react-debug.gif](https://github.com/electron-vite/electron-vite-react/blob/main/public/electron-vite-react-debug.gif?raw=true)
-
-## Directory
-
-```diff
-+ ├─┬ electron
-+ │ ├─┬ main
-+ │ │ └── index.ts    entry of Electron-Main
-+ │ └─┬ preload
-+ │   └── index.ts    entry of Preload-Scripts
-  ├─┬ src
-  │ └── main.ts       entry of Electron-Renderer
-  ├── index.html
-  ├── package.json
-  └── vite.config.ts
-```
-
-## Be aware
-
-🚨 By default, this template integrates Node.js in the Renderer process. If you don't need it, you just remove the option below. [Because it will modify the default config of Vite](https://github.com/electron-vite/vite-plugin-electron-renderer#config-presets-opinionated).
-
-```diff
-# vite.config.ts
-
-export default {
-  plugins: [
--   // Use Node.js API in the Renderer-process
--   renderer({
--     nodeIntegration: true,
--   }),
-  ],
-}
-```
-
-## FAQ
-
-- [dependencies vs devDependencies](https://github.com/electron-vite/vite-plugin-electron-renderer#dependencies-vs-devdependencies)
-- [C/C++ addons, Node.js modules - Pre-Bundling](https://github.com/electron-vite/vite-plugin-electron-renderer#dependency-pre-bundling)
+todo
