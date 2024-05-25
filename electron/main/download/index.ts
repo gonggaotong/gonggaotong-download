@@ -4,6 +4,7 @@ const fs = require('fs-extra')
 const axios = require('axios')
 const { EventEmitter } = require('events')
 import downloadDB from '../../datastore/download'
+const { BrowserWindow } = require('electron')
 
 class DownloadQueue extends EventEmitter {
   constructor(maxConcurrent = 5) {
@@ -68,73 +69,42 @@ class DownloadQueue extends EventEmitter {
       await fs.ensureFile(destination)
     }
 
-    const { size, downloaded } = task
-    const options = {
-      responseType: 'stream',
-      onDownloadProgress: progressEvent => {
-        let progress = 0
-        if (task.size) {
-          progress = progressEvent.loaded / task.size
-        }
-        this.emit('progress', task.id, progress)
-      },
-      headers: {
-        Range: '',
-        Cookie:
-          'ak_bmsc=A0084BAE2167FA1DC5BDA22FFB4328FC~000000000000000000000000000000~YAAQL9o4fRjeZ++LAQAAcadb9xWaPANmNJd+q3OFPla/VrKI0hNlKfR9QbU+Ru1xCxtvQLKei6J442+0vZCGBTFdMT3PlokgOWaIao71EuTfJznlZKUp6CncS9Crfi/0v0HIBtnvR+PjBKiAUAf4t3m1Ln9L02necOXlQXViTMp1J30Pyj7NPkND+A7y+aWMOtZOjIEqesxPgDVcTH7L+kMMfbfuYzJhAAt8vAG9TSLWMq0ZtpcUG4GkDYKIuBDMkBiAXW3w33IkSMjNesFK90OzVP4WF/eGRBTQc/Nx5x1zWZxpmMy3GLcJd9oy+4NoYcOzpRLeDxuE9wZciioIsasmn2CdByq1pVaYyJeFBbVmaVDmK2rOP1N2JxeLYlDXbbLZ+CIuH9S0F/iJeyoJD2eLpWKmZG1h5oYVcHgRdkkLc8IwG84TTs5Vl1ejk1TeB4m/miAQ/YwX2T1cSHe3tvDxQxpY6n0Vza/H3iU1fkW8tA==',
-        accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'accept-language': 'zh-CN,zh;q=0.9',
-        'cache-control': 'no-cache',
-        pragma: 'no-cache',
-        'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-site': 'none',
-        'sec-fetch-user': '?1',
-        'upgrade-insecure-requests': '1',
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.104 Safari/537.36',
-      },
-    }
-
-    if (size && downloaded < size) {
-      options.headers.Range = `bytes=${downloaded}-`
-    }
-
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
       console.log('begin-download', task.url)
-      const response = await axios.get(task.url, options)
 
-      if (!task.size) {
-        task.size = Number(response.headers['content-length'])
-        await this.db.update({ id: task.id }, { $set: { size: task.size } })
+      const scraperWindow = new BrowserWindow({
+        show: false,
+        webPreferences: {
+          offscreen: true,
+        },
+      })
+
+      let content = ''
+      try {
+        await scraperWindow.loadURL(task.url)
+        content = await scraperWindow.webContents.executeJavaScript('document.documentElement.outerHTML')
+        console.log(content)
+      } catch (error) {
+        console.log('error', error)
+        throw error
+      } finally {
+        scraperWindow.close()
       }
 
       task.status = 'downloading'
       this.emit('started', task.id)
 
-      response.data.on('data', chunk => {
-        task.downloaded += chunk.length
-      })
+      // 将content写入文件
+      fs.writeFileSync(destination, content, 'utf-8')
 
-      const writer = fs.createWriteStream(destination, { flags: 'a' })
-      this.downloads[task.id] = { data: response.data, writer }
-
-      response.data.pipe(writer)
-
-      writer.on('finish', async () => {
-        console.log('---------------')
-        task.status = 'completed'
-        this.emit('completed', task.id)
-        this.activeDownloads--
-        delete this.downloads[task.id]
-        await this.db.update({ id: task.id }, { $set: { status: 'completed' } })
-        this.checkQueue()
-      })
+      console.log('---------------')
+      task.status = 'completed'
+      this.emit('completed', task.id)
+      this.activeDownloads--
+      delete this.downloads[task.id]
+      await this.db.update({ id: task.id }, { $set: { status: 'completed' } })
+      this.checkQueue()
     } catch (error) {
       console.log('download error', error)
       this.emit('error', task.id)
