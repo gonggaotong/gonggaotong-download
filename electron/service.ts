@@ -1,31 +1,43 @@
 import axios from 'axios'
 
+function isCnInfo(url: string) {
+  return url.includes('cninfo.com.cn')
+}
+
+function isPdfContent(contentType: string | undefined, data: any): boolean {
+  if (!contentType) return false
+  if (contentType.includes('application/pdf')) return true
+  if (typeof data === 'string' && data.startsWith('%PDF')) return true
+  if (Buffer.isBuffer(data) && data.slice(0, 4).toString() === '%PDF') return true
+  return false
+}
+
 const createInstance = () => {
   const instance = axios.create({
     timeout: 30000,
     withCredentials: true,
     adapter: 'http',
-    headers: {
-      server: null,
-      'mime-version': null,
-      authority: 'www.sec.gov',
-      accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-      'accept-language': 'zh-CN,zh;q=0.9',
-      'cache-control': 'no-cache',
-      pragma: 'no-cache',
-      'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"macOS"',
-      'sec-fetch-dest': 'document',
-      'sec-fetch-mode': 'navigate',
-      'sec-fetch-site': 'none',
-      'sec-fetch-user': '?1',
-      'upgrade-insecure-requests': '1',
-      'user-agent':
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36',
-    },
   })
+
+  // 使用请求拦截器动态设置 headers
+  instance.interceptors.request.use(config => {
+    const url = config.url || ''
+    if (isCnInfo(url)) {
+      config.headers = {
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': 'http://www.cninfo.com.cn/',
+        'Accept': 'application/pdf',
+      }
+    } else {
+      config.headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/112.0 Safari/537.36',
+        'accept-language': 'zh-CN,zh;q=0.9',
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,*/*;q=0.8',
+      }
+    }
+    return config
+  })
+
   return instance
 }
 
@@ -35,46 +47,27 @@ function createClient() {
     errorMiddleware: null,
     retryUrl: null,
     promiseCache: {},
+
     get(url: string, options = {}): Promise<any> {
       return this.request('get', url, null, options)
-    },
-    put(url: string, data?: any, options = {}): Promise<any> {
-      return this.request('put', url, data, options)
     },
     post(url: string, data = {}, options = {}): Promise<any> {
       return this.request('post', url, data, options)
     },
-    patch(url: string, data: any, options = {}): Promise<any> {
-      return this.request('patch', url, data, options)
-    },
-    delete(url: string, data: any = {}, options = {}): Promise<any> {
-      return this.request('delete', url, data, options)
-    },
+
     request(method: string, url: string, data: any, options = {}): Promise<any> {
       const params: any = { method, url, data, ...options }
-      return this.instance.request(params)
-    },
-    // 设置参数
-    setBaseUrl(baseURL: string): void {
-      this.instance.defaults.baseURL = baseURL
-    },
-    setToken(token: string | null): void {
-      this.instance.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    },
-    delToken(): void {
-      this.instance.defaults.headers.common['Authorization'] = ''
-    },
-    setI18n(lang?: string): void {
-      if (lang) {
-        this.instance.defaults.headers.common['X-I18n-Language'] = lang
-      } else {
-        this.instance.defaults.headers.common['X-I18n-Language'] =
-          localStorage.getItem('i18nLanguage') === 'en' ? 'en-US' : 'zh-CN'
-      }
+      return this.instance.request(params).then(res => {
+        const contentType = res.headers?.['content-type']
+        const data = res.data
+        if (!isPdfContent(contentType, data)) {
+          console.warn(`⚠️ 非 PDF 内容，已跳过下载：${url}`)
+          throw new Error('Invalid PDF content received.')
+        }
+        return res
+      })
     },
   }
 }
 
-const service = createClient()
-
-export default service
+export const http = createClient()
