@@ -1,6 +1,6 @@
 {
   "name": "gonggaotong-download",
-  "version": "1.2.3",
+  "version": "1.2.0",
   "main": "dist-electron/main/index.js",
   "description": "",
   "author": "han2008yang@163.com",
