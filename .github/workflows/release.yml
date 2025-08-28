@@ -50,7 +50,7 @@ jobs:
       id: new_version
       run: |
         if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-          echo "version=${{ github.event.inputs.custom_version }}" >> $GITHUB_OUTPUT
+          new_version="${{ github.event.inputs.custom_version }}"
         else
           current="${{ steps.current_version.outputs.version }}"
           IFS='.' read -ra ADDR <<< "$current"
@@ -73,12 +73,17 @@ jobs:
               ;;
           esac
           
-          echo "version=${major}.${minor}.${patch}" >> $GITHUB_OUTPUT
+          new_version="${major}.${minor}.${patch}"
         fi
+        
+        echo "version=${new_version}" >> $GITHUB_OUTPUT
+        echo "Current version: ${{ steps.current_version.outputs.version }}"
+        echo "New version: ${new_version}"
 
     - name: Update package.json version
       run: |
-        npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version
+        echo "Updating package.json to version ${{ steps.new_version.outputs.version }}"
+        npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version --force
 
     - name: Update index.html version
       run: |
