@@ -4,6 +4,7 @@ import _ from 'lodash'
 import striptags from 'striptags'
 // const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args))
 const fetch = require('electron-fetch').default
+const { BrowserWindow } = require('electron')
 
 export default class UtilQueue {
   private running: boolean
@@ -77,71 +78,140 @@ export default class UtilQueue {
       })
   }
 
-  private download(item: any) {
-    return new Promise<any>((resolve, reject) => {
-      this.abortController = new AbortController()
+  private async download(item: any) {
+    return new Promise<any>(async (resolve, reject) => {
+      try {
+        this.abortController = new AbortController()
+        
+        await new Promise(resolve => setTimeout(resolve, 500))
+        console.log('begin-download', item.url)
 
-      fetch(item.url, {
-        headers: {
-          accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-          'accept-language': 'zh-CN,zh;q=0.9',
-          'cache-control': 'no-cache',
-          pragma: 'no-cache',
-          'sec-ch-ua': '"Chromium";v="112", "Google Chrome";v="112", "Not:A-Brand";v="99"',
-          'sec-ch-ua-mobile': '?0',
-          'sec-ch-ua-platform': '"macOS"',
-          'sec-fetch-dest': 'document',
-          'sec-fetch-mode': 'navigate',
-          'sec-fetch-site': 'none',
-          'sec-fetch-user': '?1',
-          'upgrade-insecure-requests': '1',
-          'User-Agent':
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.104 Safari/537.36',
-        },
-        referrerPolicy: 'strict-origin-when-cross-origin',
-        body: null,
-        method: 'GET',
-        signal: this.abortController.signal,
-      })
-        .then(response => {
-          if (item.format === 'PDF') {
-            const dest = fs.createWriteStream(item.path)
-            response.body.pipe(dest)
-            this.onDone(item)
-            resolve(item)
-          } else {
-            response
-              .text()
-              .then(body => {
-                // console.log(body)
-                const filename = item.url.split('/').pop()
-                let content
-                if (item.type !== 'juchao-report') {
-                  content = body
-                } else {
-                  content = body.replace(/<img src="/g, `<img src="${item.url.split(filename)[0]}`)
-                }
-                console.log('item.path', item.path)
-                fs.writeFileSync(item.path, content)
-                if (_.includes(item.format, 'TXT') && filename.indexOf('.txt') === -1) {
-                  content = striptags(content)
-                  // content = content.replace(/\n\n/g, '\n')
-                  // content = content.replace(/  /g, ' ')
-                  content = _.trim(content)
-                  fs.writeFileSync(item.path.replace(filename.split('.').pop(), 'txt'), content)
-                }
-                this.onDone(item)
-                resolve(item)
-              })
-              .catch(error => {
-                reject(error)
-              })
+        // 首先尝试直接下载
+        if (item.format === 'PDF' || item.format === 'pdf') {
+          try {
+            console.log('尝试直接下载PDF...')
+            const response = await fetch(item.url, {
+              headers: {
+                accept: 'application/pdf,application/octet-stream,*/*',
+                'accept-language': 'zh-CN,zh;q=0.9',
+                'cache-control': 'no-cache',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.104 Safari/537.36',
+                'Referer': 'http://www.cninfo.com.cn/'
+              },
+              signal: this.abortController.signal,
+            })
+
+            const contentType = response.headers.get('content-type') || ''
+            console.log('Content-Type:', contentType)
+            
+            if (contentType.includes('application/pdf') || item.url.toLowerCase().endsWith('.pdf')) {
+              console.log('直接下载PDF成功')
+              const buffer = await response.buffer()
+              fs.writeFileSync(item.path, buffer)
+              this.onDone(item)
+              resolve(item)
+              return
+            } else {
+              console.log('响应不是PDF，尝试浏览器下载...')
+              throw new Error('Not a PDF response')
+            }
+          } catch (directError) {
+            console.log('直接下载失败，使用浏览器方式:', directError.message)
           }
+        }
+
+        // 使用浏览器下载
+        const scraperWindow = new BrowserWindow({
+          show: false,
+          webPreferences: {
+            offscreen: true,
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: false
+          },
         })
-        .catch(error => {
-          reject(error)
-        })
+
+        try {
+          await scraperWindow.loadURL(item.url)
+          
+          // 如果是PDF格式，尝试查找真实PDF链接
+          if (item.format === 'PDF' || item.format === 'pdf') {
+            await new Promise(resolve => setTimeout(resolve, 3000))
+            
+            const pdfUrl = await scraperWindow.webContents.executeJavaScript(`
+              (function() {
+                const embed = document.querySelector('embed[type="application/pdf"]');
+                if (embed && embed.src && embed.src !== 'about:blank') {
+                  return embed.src;
+                }
+                
+                const object = document.querySelector('object[type="application/pdf"]');
+                if (object && object.data) {
+                  return object.data;
+                }
+                
+                const iframe = document.querySelector('iframe[src*=".pdf"]');
+                if (iframe && iframe.src) {
+                  return iframe.src;
+                }
+                
+                if (window.location.href.includes('.PDF') || window.location.href.includes('.pdf')) {
+                  return window.location.href;
+                }
+                
+                return null;
+              })()
+            `)
+
+            if (pdfUrl) {
+              console.log('找到PDF真实链接:', pdfUrl)
+              const response = await fetch(pdfUrl, {
+                headers: {
+                  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.5481.104 Safari/537.36',
+                  'Accept': 'application/pdf,application/octet-stream,*/*',
+                  'Referer': item.url
+                },
+                signal: this.abortController.signal,
+              })
+              
+              const buffer = await response.buffer()
+              fs.writeFileSync(item.path, buffer)
+              console.log('PDF下载完成')
+            } else {
+              console.log('未找到PDF链接，保存HTML内容')
+              const content = await scraperWindow.webContents.executeJavaScript('document.documentElement.outerHTML')
+              fs.writeFileSync(item.path.replace('.pdf', '.html'), content, 'utf-8')
+            }
+          } else {
+            // 非PDF文件的处理
+            const content = await scraperWindow.webContents.executeJavaScript('document.documentElement.outerHTML')
+            const filename = item.url.split('/').pop()
+            let processedContent
+            
+            if (item.type !== 'juchao-report') {
+              processedContent = content
+            } else {
+              processedContent = content.replace(/<img src="/g, `<img src="${item.url.split(filename)[0]}`)
+            }
+            
+            console.log('item.path', item.path)
+            fs.writeFileSync(item.path, processedContent, 'utf-8')
+            
+            if (_.includes(item.format, 'TXT') && filename.indexOf('.txt') === -1) {
+              const txtContent = _.trim(striptags(processedContent))
+              fs.writeFileSync(item.path.replace(filename.split('.').pop(), 'txt'), txtContent, 'utf-8')
+            }
+          }
+        } finally {
+          scraperWindow.close()
+        }
+
+        this.onDone(item)
+        resolve(item)
+      } catch (error) {
+        console.log('download error', error)
+        reject(error)
+      }
     })
   }
 }

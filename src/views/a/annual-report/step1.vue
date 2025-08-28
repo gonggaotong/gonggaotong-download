@@ -276,14 +276,20 @@ const onClickNext = async () => {
     let stocks: string[] = []
     if (filteredCodes && filteredCodes.length > 0) {
       const allCompanies = await juchaoService.getAllCompany()
+      let hasError = false
       if (allCompanies) {
         _.forEach(filteredCodes, (code: string) => {
           const orgId = allCompanies[code]?.orgId
-          if (!orgId) {
+          if (code && !orgId) {
+            ElMessage.error(`公司代码${code}不存在`)
+            hasError = true
             return
           }
           stocks.push(`${code},${orgId}`)
         })
+      }
+      if (hasError) {
+        return
       }
     }
     const dateStart = dateRage.value[0]
