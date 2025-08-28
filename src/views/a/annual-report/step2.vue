@@ -147,6 +147,10 @@ const getFormatDate = (time: number) => {
   return dayjs(time).format('YYYY-MM-DD')
 }
 
+const sanitizeFilename = (filename: string) => {
+  return filename.replace(/[<>:"/\\|?*]/g, '_').replace(/[\x00-\x1f\x80-\x9f]/g, '_').trim()
+}
+
 const formatTitle = (items: any[]) => {
   return _.map(items, (item: any) => {
     return {
@@ -214,9 +218,9 @@ const onClickDownload = async () => {
       totalNum++
 
       const url = `http://static.cninfo.com.cn/${item.adjunctUrl}`
-      const filename = `${item.secCode}${item.secName}_${item.announcementTitle}_${getFormatDate(
+      const filename = sanitizeFilename(`${item.secCode}${item.secName}_${item.announcementTitle}_${getFormatDate(
         item.announcementTime,
-      )}.PDF`
+      )}.PDF`)
       if (existTaskHashes.includes(url)) {
         count++
         return
