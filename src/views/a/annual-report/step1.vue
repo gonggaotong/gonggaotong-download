@@ -285,7 +285,9 @@ const onClickNext = async () => {
             hasError = true
             return
           }
-          stocks.push(`${code},${orgId}`)
+          if (code && orgId) {
+            stocks.push(`${code},${orgId}`)
+          }
         })
       }
       if (hasError) {
