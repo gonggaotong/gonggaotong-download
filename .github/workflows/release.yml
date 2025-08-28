@@ -9,212 +9,219 @@ on:
         default: 'patch'
         type: choice
         options:
-        - patch
-        - minor
-        - major
+          - patch
+          - minor
+          - major
       custom_version:
         description: 'Custom version (optional, overrides version_type)'
         required: false
         type: string
 
+permissions:
+  contents: write
+  actions: read
+  pull-requests: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+          persist-credentials: true
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Configure Git
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    - name: Get current version
-      id: current_version
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Get current version
+        id: current_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-    - name: Calculate new version
-      id: new_version
-      run: |
-        if [ -n "${{ github.event.inputs.custom_version }}" ]; then
-          new_version="${{ github.event.inputs.custom_version }}"
-        else
-          current="${{ steps.current_version.outputs.version }}"
-          IFS='.' read -ra ADDR <<< "$current"
-          major=${ADDR[0]}
-          minor=${ADDR[1]}
-          patch=${ADDR[2]}
-          
-          case "${{ github.event.inputs.version_type }}" in
-            major)
-              major=$((major + 1))
-              minor=0
-              patch=0
-              ;;
-            minor)
-              minor=$((minor + 1))
-              patch=0
-              ;;
-            patch)
-              patch=$((patch + 1))
-              ;;
-          esac
-          
-          new_version="${major}.${minor}.${patch}"
-        fi
-        
-        echo "version=${new_version}" >> $GITHUB_OUTPUT
-        echo "Current version: ${{ steps.current_version.outputs.version }}"
-        echo "New version: ${new_version}"
+      - name: Calculate new version
+        id: new_version
+        run: |
+          if [ -n "${{ github.event.inputs.custom_version }}" ]; then
+            new_version="${{ github.event.inputs.custom_version }}"
+          else
+            current="${{ steps.current_version.outputs.version }}"
+            IFS='.' read -ra ADDR <<< "$current"
+            major=${ADDR[0]}
+            minor=${ADDR[1]}
+            patch=${ADDR[2]}
 
-    - name: Update package.json version
-      run: |
-        echo "Updating package.json to version ${{ steps.new_version.outputs.version }}"
-        npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version --force
+            case "${{ github.event.inputs.version_type }}" in
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch)
+                patch=$((patch + 1))
+                ;;
+            esac
 
-    - name: Update index.html version
-      run: |
-        sed -i "s/gonggaotong-download-[0-9]\+\.[0-9]\+\.[0-9]\+/gonggaotong-download-${{ steps.new_version.outputs.version }}/g" index.html
+            new_version="${major}.${minor}.${patch}"
+          fi
 
-    - name: Commit version changes
-      run: |
-        git add package.json index.html
-        git commit -m "chore: bump version to ${{ steps.new_version.outputs.version }}"
-        git push origin main
+          echo "version=${new_version}" >> $GITHUB_OUTPUT
+          echo "Current version: ${{ steps.current_version.outputs.version }}"
+          echo "New version: ${new_version}"
 
-    - name: Create Git tag
-      run: |
-        git tag v${{ steps.new_version.outputs.version }}
-        git push origin v${{ steps.new_version.outputs.version }}
+      - name: Update package.json version
+        run: |
+          echo "Updating package.json to version ${{ steps.new_version.outputs.version }}"
+          npm version ${{ steps.new_version.outputs.version }} --no-git-tag-version --force
+
+      - name: Update index.html version
+        run: |
+          sed -i "s/gonggaotong-download-[0-9]\+\.[0-9]\+\.[0-9]\+/gonggaotong-download-${{ steps.new_version.outputs.version }}/g" index.html
+
+      - name: Commit version changes
+        run: |
+          git add package.json index.html
+          git commit -m "chore: bump version to ${{ steps.new_version.outputs.version }}"
+          git push origin main
+
+      - name: Create Git tag
+        run: |
+          git tag v${{ steps.new_version.outputs.version }}
+          git push origin v${{ steps.new_version.outputs.version }}
 
   build:
     needs: release
     strategy:
       matrix:
         os: [macos-latest, windows-latest]
-        
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
-    - name: Checkout code (updated)
-      uses: actions/checkout@v4
-      with:
-        ref: main
-        fetch-depth: 0
+      - name: Checkout code (updated)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Get version from package.json
-      id: package_version
-      shell: bash
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Get version from package.json
+        id: package_version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-    - name: Build for macOS
-      if: matrix.os == 'macos-latest'
-      run: npm run build:mac
+      - name: Build for macOS
+        if: matrix.os == 'macos-latest'
+        run: npm run build:mac
 
-    - name: Build for Windows x64
-      if: matrix.os == 'windows-latest'
-      run: npm run build:win64
+      - name: Build for Windows x64
+        if: matrix.os == 'windows-latest'
+        run: npm run build:win64
 
-    - name: Upload macOS artifacts
-      if: matrix.os == 'macos-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: macos-build
-        path: |
-          release/${{ steps.package_version.outputs.version }}/*.dmg
-        retention-days: 1
+      - name: Upload macOS artifacts
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            release/${{ steps.package_version.outputs.version }}/*.dmg
+          retention-days: 1
 
-    - name: Upload Windows artifacts
-      if: matrix.os == 'windows-latest'
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-build
-        path: |
-          release/${{ steps.package_version.outputs.version }}/*.exe
-        retention-days: 1
+      - name: Upload Windows artifacts
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            release/${{ steps.package_version.outputs.version }}/*.exe
+          retention-days: 1
 
   create_release:
     needs: [release, build]
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code (updated)
-      uses: actions/checkout@v4
-      with:
-        ref: main
+      - name: Checkout code (updated)
+        uses: actions/checkout@v4
+        with:
+          ref: main
 
-    - name: Get version from package.json
-      id: package_version
-      run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+      - name: Get version from package.json
+        id: package_version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: v${{ steps.package_version.outputs.version }}
-        release_name: Release v${{ steps.package_version.outputs.version }}
-        body: |
-          ## 更新内容
-          
-          - 更新至版本 ${{ steps.package_version.outputs.version }}
-          
-          ## 下载
-          
-          - **macOS**: 下载 `.dmg` 文件
-          - **Windows**: 下载 `.exe` 文件
-          
-          ## 系统要求
-          
-          - macOS 10.15 或更高版本
-          - Windows 10 或更高版本
-        draft: false
-        prerelease: false
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.package_version.outputs.version }}
+          release_name: Release v${{ steps.package_version.outputs.version }}
+          body: |
+            ## 更新内容
 
-    - name: Upload macOS Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/macos-build/gonggaotong-download-${{ steps.package_version.outputs.version }}.dmg
-        asset_name: gonggaotong-download-${{ steps.package_version.outputs.version }}-mac.dmg
-        asset_content_type: application/octet-stream
+            - 更新至版本 ${{ steps.package_version.outputs.version }}
 
-    - name: Upload Windows Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/windows-build/gonggaotong-download Setup ${{ steps.package_version.outputs.version }}.exe
-        asset_name: gonggaotong-download-${{ steps.package_version.outputs.version }}-win.exe
-        asset_content_type: application/octet-stream
+            ## 下载
+
+            - **macOS**: 下载 `.dmg` 文件
+            - **Windows**: 下载 `.exe` 文件
+
+            ## 系统要求
+
+            - macOS 10.15 或更高版本
+            - Windows 10 或更高版本
+          draft: false
+          prerelease: false
+
+      - name: Upload macOS Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/macos-build/gonggaotong-download-${{ steps.package_version.outputs.version }}.dmg
+          asset_name: gonggaotong-download-${{ steps.package_version.outputs.version }}-mac.dmg
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path:
+            artifacts/windows-build/gonggaotong-download Setup ${{ steps.package_version.outputs.version }}.exe
+          asset_name: gonggaotong-download-${{ steps.package_version.outputs.version }}-win.exe
+          asset_content_type: application/octet-stream
