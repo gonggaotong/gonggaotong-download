@@ -137,10 +137,14 @@ jobs:
 
       - name: Build for macOS
         if: matrix.os == 'macos-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:mac
 
       - name: Build for Windows x64
         if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:win64
 
       - name: Upload macOS artifacts
