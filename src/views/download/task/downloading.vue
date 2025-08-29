@@ -1,90 +1,181 @@
 <template>
-  <div class="downloading-operation">
-    <div class="downloading-operation-left">
-      统计：共{{ total }}个
-      <!-- <b>{{ isPaused ? '下载暂停' : '下载中' }}</b> -->
-      <br />
-      <!-- <span style="font-size: 12px; color: red">注：此页面只展示前1000条</span> -->
+  <div class="download-tasks">
+    <!-- 操作控制栏 -->
+    <div class="control-panel">
+      <div class="panel-info">
+        <div class="stats-display">
+          <div class="stat-item">
+            <span class="stat-icon">📊</span>
+            <span class="stat-label">任务总数</span>
+            <span class="stat-value">{{ total }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-controls">
+        <el-select 
+          v-model="status" 
+          placeholder="筛选状态" 
+          @change="onStatusChange"
+          class="status-filter"
+        >
+          <el-option key="all" label="全部任务" value="all" />
+          <el-option key="downloading" label="下载中" value="downloading" />
+          <el-option key="completed" label="已完成" value="completed" />
+          <el-option key="error" label="下载失败" value="error" />
+        </el-select>
+
+        <div class="action-buttons">
+          <button class="btn btn-primary btn-sm" @click="handleBegin">
+            <span class="btn-icon">▶️</span>
+            <span>全部开始</span>
+          </button>
+          <button class="btn btn-secondary btn-sm" @click="handleStop">
+            <span class="btn-icon">⏸️</span>
+            <span>全部暂停</span>
+          </button>
+          <button class="btn btn-ghost btn-sm" @click="handleDelete">
+            <span class="btn-icon">🗑️</span>
+            <span>全部删除</span>
+          </button>
+        </div>
+      </div>
     </div>
-    <div class="downloading-operation-right">
-      <el-select v-model="status" class="m-2" placeholder="Select" @change="onStatusChange">
-        <el-option key="all" label="全部" value="all" />
-        <el-option key="downloading" label="下载中" value="downloading" />
-        <el-option key="completed" label="下载完成" value="completed" />
-        <el-option key="error" label="下载失败" value="error" />
-      </el-select>
-      <el-button type="primary" @click="handleBegin">全部开始</el-button>
-      <el-button type="default" @click="handleStop">全部暂停</el-button>
-      <el-button type="danger" @click="handleDelete">全部删除</el-button>
+
+    <!-- 任务列表 -->
+    <div class="tasks-list">
+      <el-table 
+        :data="tableData" 
+        v-loading="loading" 
+        class="modern-tasks-table"
+        :border="false"
+        stripe
+        empty-text="暂无下载任务"
+      >
+        <el-table-column label="文件名称" min-width="400">
+          <template #default="scope">
+            <div class="filename-cell">
+              <div class="file-icon">📄</div>
+              <div class="file-info">
+                <div class="file-name" :title="scope.row.filename">{{ scope.row.filename }}</div>
+                <div class="file-path" :title="scope.row.directory">{{ scope.row.directory }}</div>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="下载状态" width="200" align="center">
+          <template #default="scope">
+            <div class="status-cell">
+              <!-- 错误状态 -->
+              <div v-if="scope.row.status === 'error'" class="status-badge error">
+                <span class="status-icon">❌</span>
+                <span class="status-text">下载失败</span>
+              </div>
+              
+              <!-- 等待状态 -->
+              <div v-else-if="scope.row.status === 'queued'" class="status-badge queued">
+                <span class="status-icon">⏳</span>
+                <span class="status-text">等待中</span>
+              </div>
+              
+              <!-- 暂停状态 -->
+              <div v-else-if="scope.row.status === 'paused'" class="status-badge paused">
+                <span class="status-icon">⏸️</span>
+                <span class="status-text">已暂停</span>
+              </div>
+              
+              <!-- 下载中状态 -->
+              <div v-else-if="scope.row.status === 'downloading'" class="status-progress">
+                <el-progress 
+                  :percentage="Math.min(scope.row.progress * 100, 100)"
+                  :stroke-width="6"
+                  :show-text="false"
+                />
+                <div class="progress-info">
+                  <el-icon class="rotating progress-icon"><Loading /></el-icon>
+                  <span class="progress-text">{{ Math.round(scope.row.progress * 100) }}%</span>
+                </div>
+              </div>
+              
+              <!-- 完成状态 -->
+              <div v-else-if="scope.row.status === 'completed'" class="status-badge completed">
+                <span class="status-icon">✅</span>
+                <span class="status-text">下载完成</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="操作" width="260" align="center">
+          <template #default="scope">
+            <div class="action-cell">
+              <!-- 重试按钮 -->
+              <button 
+                v-if="scope.row.status === 'error'"
+                class="btn btn-primary btn-xs"
+                @click="handleClickRetry(scope.$index, scope.row)"
+              >
+                <span class="btn-icon">🔄</span>
+                <span>重试</span>
+              </button>
+              
+              <!-- 打开文件夹按钮 -->
+              <button 
+                v-if="scope.row.status === 'completed'"
+                class="btn btn-secondary btn-xs"
+                @click="handleClickOpenOne(scope.$index, scope.row)"
+              >
+                <span class="btn-icon">📂</span>
+                <span>打开文件夹</span>
+              </button>
+              
+              <!-- 删除按钮 -->
+              <el-tooltip 
+                content="仅删除下载任务，不会删除已下载的文件" 
+                placement="top"
+              >
+                <button 
+                  class="btn btn-ghost btn-xs"
+                  @click="handleDeleteOne(scope.$index, scope.row)"
+                >
+                  <span class="btn-icon">🗑️</span>
+                  <span>删除</span>
+                </button>
+              </el-tooltip>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
     </div>
-  </div>
-  <div class="downloading-content">
-    <el-table :data="tableData" style="width: 100%" v-loading="loading">
-      <el-table-column label="名称">
-        <template #default="scope">
-          <div class="name">{{ scope.row.filename }}</div>
-        </template>
-      </el-table-column>
-      <el-table-column label="下载状态">
-        <template #default="scope">
-          <div class="status" v-if="scope.row.status === 'error'">
-            <div class="status-pending">下载出错</div>
-          </div>
-          <div class="status" v-if="scope.row.status === 'queued'">
-            <div class="status-pending">等待中</div>
-          </div>
-          <div class="status" v-if="scope.row.status === 'paused'">
-            <div class="status-pending">暂停中</div>
-          </div>
-          <div class="status" v-if="scope.row.status === 'downloading'">
-            <el-progress :percentage="scope.row.progress * 100 > 100 ? 100 : scope.row.progress * 100">
-              <div class="status-downloading">
-                <el-icon><Loading /></el-icon>
-                <!-- <div>{{ scope.row.progress }}</div> -->
-              </div>
-            </el-progress>
-          </div>
-          <div class="status" v-if="scope.row.status === 'completed'">
-            <el-progress :percentage="100">
-              <div class="status-complete">
-                <el-icon style="color: #67c23a"><CircleCheck /></el-icon>
-                <div>{{ getCompleteText(scope.row) }}</div>
-              </div>
-            </el-progress>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column prop="address" label="操作" width="300">
-        <template #default="scope">
-          <el-tooltip class="box-item" effect="dark" content="只会删除下载任务，不会删除源文件" placement="top">
-            <el-button size="small" type="danger" @click="handleDeleteOne(scope.$index, scope.row)">删除</el-button>
-          </el-tooltip>
-          <el-button
-            v-if="scope.row.status === 'error'"
-            size="small"
-            type="primary"
-            @click="handleClickRetry(scope.$index, scope.row)"
-          >
-            重试
-          </el-button>
-          <el-button
-            v-if="scope.row.status === 'completed'"
-            size="small"
-            type="primary"
-            @click="handleClickOpenOne(scope.$index, scope.row)"
-          >
-            打开所在文件夹
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-dialog v-model="deleteAllVisible" title="二次确认" width="400">
-      <span>确定删除全部下载任务？注意：不会删除下载源文件</span>
+
+    <!-- 删除确认对话框 -->
+    <el-dialog 
+      v-model="deleteAllVisible" 
+      title="确认删除" 
+      width="450px"
+      class="modern-dialog"
+    >
+      <div class="confirm-content">
+        <div class="confirm-icon">⚠️</div>
+        <div class="confirm-text">
+          <h3>确定删除全部下载任务吗？</h3>
+          <p>此操作仅删除任务记录，不会删除已下载的文件</p>
+        </div>
+      </div>
+      
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="deleteAllVisible = false">取消</el-button>
-          <el-button type="primary" :loading="deleting" @click="confirmDeleteAll">确定</el-button>
-        </span>
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" @click="deleteAllVisible = false">取消</button>
+          <button 
+            class="btn btn-primary" 
+            :disabled="deleting" 
+            @click="confirmDeleteAll"
+          >
+            <span class="btn-icon" v-if="deleting">⏳</span>
+            <span>{{ deleting ? '删除中...' : '确认删除' }}</span>
+          </button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -259,38 +350,297 @@ const handleClickPause = (index: number, item: any) => {
   // window.pauseDownloadTask(toRaw(item))
 }
 </script>
-<style lang="less">
-.downloading-operation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ccc;
-  .downloading-operation-left {
-    font-size: 14px;
-    font-weight: bold;
-  }
-  .downloading-operation-right {
+<style lang="less" scoped>
+.download-tasks {
+  .control-panel {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    .el-button {
-      margin-left: 10px;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border-light);
+    margin-bottom: var(--space-6);
+
+    .panel-info {
+      .stats-display {
+        .stat-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          background: var(--color-primary-light);
+          color: var(--color-primary);
+          padding: var(--space-2) var(--space-4);
+          border-radius: var(--radius-full);
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          border: 1px solid rgba(0, 122, 255, 0.2);
+
+          .stat-icon {
+            font-size: var(--font-size-base);
+          }
+
+          .stat-value {
+            font-weight: var(--font-weight-bold);
+          }
+        }
+      }
+    }
+
+    .panel-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+
+      .status-filter {
+        min-width: 120px;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: var(--space-2);
+      }
+    }
+  }
+
+  .tasks-list {
+    .filename-cell {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+
+      .file-icon {
+        font-size: var(--font-size-lg);
+        flex-shrink: 0;
+      }
+
+      .file-info {
+        flex: 1;
+        overflow: hidden;
+
+        .file-name {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-medium);
+          color: var(--color-text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-bottom: var(--space-1);
+        }
+
+        .file-path {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-quaternary);
+          font-family: var(--font-family-mono);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .status-cell {
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-medium);
+        white-space: nowrap;
+
+        &.error {
+          background: var(--color-error-light);
+          color: var(--color-error);
+          border: 1px solid rgba(255, 59, 48, 0.2);
+        }
+
+        &.queued {
+          background: var(--color-gray-100);
+          color: var(--color-text-tertiary);
+          border: 1px solid var(--color-border-medium);
+        }
+
+        &.paused {
+          background: var(--color-warning-light);
+          color: var(--color-warning);
+          border: 1px solid rgba(255, 149, 0, 0.2);
+        }
+
+        &.completed {
+          background: rgba(52, 199, 89, 0.1);
+          color: #34c759;
+          border: 1px solid rgba(52, 199, 89, 0.25);
+        }
+
+        .status-icon {
+          font-size: var(--font-size-sm);
+        }
+      }
+
+      .status-progress {
+        width: 100%;
+
+        .progress-info {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: var(--space-1);
+          margin-top: var(--space-2);
+
+          .progress-icon {
+            font-size: var(--font-size-sm);
+            
+            &.rotating {
+              animation: rotate 2s linear infinite;
+            }
+          }
+
+          .progress-text {
+            font-size: var(--font-size-xs);
+            color: var(--color-text-tertiary);
+            font-weight: var(--font-weight-medium);
+          }
+        }
+      }
+    }
+
+    .action-cell {
+      display: flex;
+      gap: var(--space-2);
+      justify-content: center;
+      flex-wrap: wrap;
     }
   }
 }
-.downloading-content {
-  padding-top: 10px;
-  .status {
-    font-size: 12px;
-    &-downloading {
-      display: flex;
-      font-size: 12px;
-      justify-content: space-evenly;
+
+/* Element Plus 组件样式覆盖 */
+:deep(.status-filter) {
+  .el-select__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
     }
-    &-complete {
-      display: flex;
-      font-size: 12px;
-      justify-content: space-evenly;
+    
+    &.is-focused {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+:deep(.modern-tasks-table) {
+  .el-table__header {
+    th {
+      background: var(--color-bg-secondary);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-semibold);
+      border-bottom: 2px solid var(--color-border-light);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .el-table__body {
+    tr {
+      &:hover {
+        background: var(--color-bg-tertiary);
+      }
+
+      td {
+        border-bottom: 1px solid var(--color-border-light);
+        padding: var(--space-4);
+      }
+    }
+
+    .el-table__row--striped {
+      background: rgba(0, 122, 255, 0.02);
+    }
+  }
+
+  .el-table__empty-text {
+    color: var(--color-text-quaternary);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* 确认对话框样式 */
+.confirm-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+
+  .confirm-icon {
+    font-size: var(--font-size-3xl);
+    flex-shrink: 0;
+  }
+
+  .confirm-text {
+    flex: 1;
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--space-2) 0;
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin: 0;
+      line-height: var(--line-height-relaxed);
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .download-tasks {
+    .control-panel {
+      flex-direction: column;
+      gap: var(--space-4);
+      align-items: stretch;
+
+      .panel-controls {
+        flex-direction: column;
+        gap: var(--space-3);
+
+        .action-buttons {
+          justify-content: center;
+        }
+      }
+    }
+
+    .filename-cell {
+      .file-info {
+        .file-name {
+          font-size: var(--font-size-xs);
+        }
+      }
+    }
+
+    .action-cell {
+      flex-direction: column;
+      gap: var(--space-1);
     }
   }
 }

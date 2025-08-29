@@ -1,71 +1,169 @@
 <template>
-  <div class="data">
-    <div>
-      操&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;作：
-      <el-button class="main-footer-button" type="default" @click="onClickPrev">上一步</el-button>
+  <div class="a-stock-results">
+    <!-- 页面头部 -->
+    <div class="page-header">
+      <h1 class="page-title">A股公告列表</h1>
+      <p class="page-subtitle">筛选结果预览，确认后可开始批量下载</p>
     </div>
-    <div class="data-operation">
-      <div class="data-operation-desc">屏蔽关键词：</div>
-      <el-input
-        placeholder="请输入屏蔽标题关键词，多个用空格隔开，留空为不屏蔽，例如：已取消 英文版"
-        v-model="keywords"
-      ></el-input>
-      <el-button class="data-operation-button" type="primary" @click="onClickDownload" :loading="downloding">
-        立即下载
-      </el-button>
-    </div>
-    <div class="data-filters">筛选结果：{{ total }}个</div>
-    <div class="data-tips">注：批量下载一次只能下载前3000个，如需下载更多，请更改时间段筛选，将结果集控制在3000个</div>
-    <div class="data-title">公告列表</div>
-    <div class="data-content">
-      <el-table ref="multipleTableRef" border :data="tableData" v-loading="loading" style="width: 100%">
-        <!-- <el-table-column type="selection" width="55" /> -->
-        <el-table-column label="公司代码" property="secCode" width="100"></el-table-column>
-        <el-table-column label="公司名称" property="secName" />
-        <el-table-column label="公告标题" property="announcementTitle">
-          <template #default="scope">
-            <div style="display: flex; align-items: center">
-              <a href="###" @click.prevent="onClickItem(scope.row)">{{ `${scope.row.announcementTitle}.PDF` }}</a>
+
+    <!-- 操作区域 -->
+    <div class="action-section">
+      <div class="action-card">
+        <div class="action-header">
+          <button class="btn btn-ghost" @click="onClickPrev">
+            <span class="btn-icon">←</span>
+            <span>返回上一步</span>
+          </button>
+          <div class="results-info">
+            <div class="stat-badge">
+              <span class="stat-icon">📊</span>
+              <span class="stat-text">筛选结果：{{ total }} 个</span>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="公告发布时间" width="120">
-          <template #default="scope">
-            <div style="display: flex; align-items: center">
-              <span>{{ getFormatDate(scope.row.announcementTime) }}</span>
-            </div>
-          </template>
-        </el-table-column>
-      </el-table>
-    </div>
-    <div class="data-pager">
-      <el-pagination
-        background
-        :total="total"
-        v-model:current-page="page"
-        v-model:page-size="limit"
-        :page-sizes="[30]"
-        layout="total, sizes, prev, pager, next, jumper"
-        @current-change="handleCurrentChange"
-      />
-    </div>
-    <div class="main-footer">
-      <!-- <el-button class="main-footer-button" type="default" @click="onClickPrev">上一步</el-button> -->
-    </div>
-    <el-dialog v-model="dialogVisible" title="下载提示" width="450px" :show-close="false">
-      <div>
-        <div style="margin-bottom: 20px">正在获取列表，关闭对话框会中断列表获取，目前进度如下：</div>
-        <el-progress :percentage="percent">
-          <div class="status-downloading">
-            <el-icon><Loading /></el-icon>
-            <div>{{ percentText }}</div>
           </div>
-        </el-progress>
+        </div>
+
+        <div class="filter-section">
+          <div class="filter-item">
+            <label class="filter-label">
+              <span class="label-text">屏蔽关键词</span>
+              <span class="label-hint">（可选，多个关键词用空格分隔）</span>
+            </label>
+            <div class="filter-input-group">
+              <el-input
+                v-model="keywords"
+                placeholder="例如：已取消 英文版 补充更正"
+                class="modern-input filter-input"
+                clearable
+              />
+              <button 
+                class="btn btn-primary download-btn" 
+                @click="onClickDownload" 
+                :disabled="downloding || total === 0"
+              >
+                <span class="btn-icon" v-if="downloding">⏳</span>
+                <span class="btn-icon" v-else>📥</span>
+                <span>{{ downloding ? '准备下载...' : '立即下载' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-section">
+          <div class="info-item warning">
+            <span class="info-icon">⚠️</span>
+            <span class="info-text">
+              注意：批量下载一次最多下载前3000个文件。如需下载更多，请调整筛选条件，将结果控制在3000个以内。
+            </span>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="table-section">
+      <div class="table-card">
+        <div class="table-header">
+          <h2 class="table-title">公告列表</h2>
+        </div>
+        <div class="table-content">
+          <el-table 
+            ref="multipleTableRef" 
+            :data="tableData" 
+            v-loading="loading" 
+            class="modern-table"
+            :border="false"
+            stripe
+          >
+            <el-table-column label="公司代码" property="secCode" width="120" align="center">
+              <template #default="scope">
+                <div class="code-cell">{{ scope.row.secCode }}</div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column label="公司名称" property="secName" width="200">
+              <template #default="scope">
+                <div class="company-cell">{{ scope.row.secName }}</div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column label="公告标题" property="announcementTitle" min-width="300">
+              <template #default="scope">
+                <div class="title-cell">
+                  <a 
+                    href="#" 
+                    class="title-link" 
+                    @click.prevent="onClickItem(scope.row)"
+                    :title="scope.row.announcementTitle"
+                  >
+                    {{ scope.row.announcementTitle }}
+                  </a>
+                  <span class="file-ext">.PDF</span>
+                </div>
+              </template>
+            </el-table-column>
+            
+            <el-table-column label="发布时间" width="120" align="center">
+              <template #default="scope">
+                <div class="date-cell">
+                  <span class="date-text">{{ getFormatDate(scope.row.announcementTime) }}</span>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <!-- 分页器 -->
+        <div class="pagination-section">
+          <el-pagination
+            background
+            :total="total"
+            v-model:current-page="page"
+            v-model:page-size="limit"
+            :page-sizes="[30]"
+            layout="total, prev, pager, next, jumper"
+            @current-change="handleCurrentChange"
+            class="modern-pagination"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- 下载进度对话框 -->
+    <el-dialog 
+      v-model="dialogVisible" 
+      title="批量下载进度" 
+      width="500px" 
+      :show-close="false"
+      class="modern-dialog"
+    >
+      <div class="progress-content">
+        <div class="progress-info">
+          <div class="progress-text">正在获取完整列表，请耐心等待...</div>
+          <div class="progress-warning">关闭对话框会中断列表获取过程</div>
+        </div>
+        
+        <div class="progress-display">
+          <el-progress 
+            :percentage="percent" 
+            :stroke-width="12"
+            :show-text="false"
+          />
+          <div class="progress-stats">
+            <div class="progress-icon">
+              <el-icon class="rotating"><Loading /></el-icon>
+            </div>
+            <div class="progress-detail">{{ percentText }}</div>
+          </div>
+        </div>
+      </div>
+      
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="onClickCloseDialog">关闭</el-button>
-        </span>
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" @click="onClickCloseDialog">
+            <span class="btn-icon">✖️</span>
+            <span>中断获取</span>
+          </button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -250,63 +348,418 @@ const onClickDownload = async () => {
   downloding.value = false
 }
 </script>
-<style lang="less">
-.main-container {
-  .save-position {
-    margin-left: 10px;
-  }
-  .span {
-    color: #606266;
-    margin-left: 5px;
-  }
-  .main-title {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .form-setting {
-    padding-top: 8px;
-    &-item {
-      margin-bottom: 10px;
-    }
-    label {
-      font-size: 12px;
+<style lang="less" scoped>
+.a-stock-results {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+
+  .page-title {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-3) 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    
+    &::before {
+      content: '🇨🇳';
+      font-size: var(--font-size-2xl);
     }
   }
 
-  .data {
-    margin-top: 20px;
-    &-filters {
-      padding: 10px 0;
-    }
-    &-operation {
+  .page-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+}
+
+.action-section {
+  margin-bottom: var(--space-8);
+}
+
+.action-card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  padding: var(--space-6);
+  
+  .action-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-6);
+  }
+
+  .results-info {
+    .stat-badge {
       display: flex;
-      justify-content: flex-start;
       align-items: center;
-      margin-top: 15px;
-      &-desc {
-        width: 120px;
+      gap: var(--space-2);
+      background: var(--color-success-light);
+      color: #34c759;
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
+      border: 1px solid rgba(52, 199, 89, 0.25);
+
+      .stat-icon {
+        font-size: var(--font-size-base);
       }
-      &-button {
-        margin-left: 10px;
-      }
-    }
-    &-tips {
-      font-size: 12px;
-      color: crimson;
-      margin-bottom: 6px;
-    }
-    &-title {
-      text-align: center;
-      background: #1696e7;
-      color: white;
-      padding: 10px;
-    }
-    &-pager {
-      margin-top: 20px;
     }
   }
 }
-.status-downloading {
+
+.filter-section {
+  margin-bottom: var(--space-6);
+
+  .filter-item {
+    .filter-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-3);
+
+      .label-text {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-secondary);
+      }
+
+      .label-hint {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-quaternary);
+      }
+    }
+
+    .filter-input-group {
+      display: flex;
+      gap: var(--space-4);
+      align-items: flex-end;
+
+      .filter-input {
+        flex: 1;
+        max-width: 400px;
+      }
+
+      .download-btn {
+        white-space: nowrap;
+      }
+    }
+  }
+}
+
+.info-section {
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-radius: var(--radius-base);
+
+    &.warning {
+      background: var(--color-warning-light);
+      border: 1px solid rgba(255, 149, 0, 0.2);
+    }
+
+    .info-icon {
+      font-size: var(--font-size-base);
+      margin-top: 2px;
+    }
+
+    .info-text {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-relaxed);
+    }
+  }
+}
+
+.table-section {
+  margin-bottom: var(--space-8);
+}
+
+.table-card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+
+  .table-header {
+    background: var(--color-bg-tertiary);
+    padding: var(--space-4) var(--space-6);
+    border-bottom: 1px solid var(--color-border-light);
+
+    .table-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+  }
+
+  .table-content {
+    overflow-x: auto;
+  }
+
+  .pagination-section {
+    padding: var(--space-4) var(--space-6);
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border-light);
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* 表格单元格样式 */
+.code-cell {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+.company-cell {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.title-cell {
   display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  .title-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: color var(--transition-fast);
+
+    &:hover {
+      color: var(--color-primary-hover);
+      text-decoration: underline;
+    }
+  }
+
+  .file-ext {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-quaternary);
+    background: var(--color-bg-tertiary);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+  }
+}
+
+.date-cell {
+  .date-text {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-family-mono);
+  }
+}
+
+/* Element Plus 组件样式覆盖 */
+:deep(.modern-input) {
+  .el-input__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+    
+    &.is-focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+:deep(.modern-table) {
+  .el-table__header {
+    th {
+      background: var(--color-bg-secondary);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-semibold);
+      border-bottom: 2px solid var(--color-border-light);
+    }
+  }
+
+  .el-table__body {
+    tr {
+      &:hover {
+        background: var(--color-bg-tertiary);
+      }
+
+      td {
+        border-bottom: 1px solid var(--color-border-light);
+        padding: var(--space-3) var(--space-4);
+      }
+    }
+
+    .el-table__row--striped {
+      background: rgba(0, 122, 255, 0.02);
+    }
+  }
+}
+
+:deep(.modern-pagination) {
+  .el-pagination__total,
+  .el-pagination__jump {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .el-pager .el-pager__item {
+    border-radius: var(--radius-sm);
+    margin: 0 2px;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+
+    &.is-active {
+      background: var(--color-primary);
+      color: white;
+    }
+  }
+
+  .btn-prev,
+  .btn-next {
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+
+    &:hover {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+    }
+  }
+}
+
+/* 进度对话框样式 */
+.progress-content {
+  .progress-info {
+    text-align: center;
+    margin-bottom: var(--space-6);
+
+    .progress-text {
+      font-size: var(--font-size-base);
+      color: var(--color-text-primary);
+      margin-bottom: var(--space-2);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .progress-warning {
+      font-size: var(--font-size-sm);
+      color: var(--color-warning);
+    }
+  }
+
+  .progress-display {
+    margin-bottom: var(--space-4);
+
+    .progress-stats {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      margin-top: var(--space-4);
+
+      .progress-icon {
+        .rotating {
+          animation: rotate 2s linear infinite;
+        }
+      }
+
+      .progress-detail {
+        font-size: var(--font-size-base);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+      }
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: center;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-header .page-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .action-card {
+    padding: var(--space-4);
+
+    .action-header {
+      flex-direction: column;
+      gap: var(--space-4);
+      align-items: stretch;
+    }
+
+    .filter-input-group {
+      flex-direction: column;
+      gap: var(--space-3);
+
+      .filter-input {
+        max-width: none;
+      }
+    }
+  }
+
+  .table-card {
+    .table-header,
+    .pagination-section {
+      padding: var(--space-3) var(--space-4);
+    }
+  }
+
+  .title-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+
+    .title-link {
+      white-space: normal;
+      line-height: var(--line-height-tight);
+    }
+  }
 }
 </style>

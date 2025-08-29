@@ -1,67 +1,142 @@
 <template>
-  <div class="main-content">
-    <el-form ref="form" label-width="200px" label-position="left">
-      <el-form-item label="步骤一、设置下载路径：">
-        <a href="###" @click="openLocalPath(savePath)">{{ savePath }}</a>
-        <el-button class="save-position" size="small" type="default" @click="openSavePathDialog()">
-          {{ savePath ? '更换存储位置' : '请选择存储位置' }}
-        </el-button>
-      </el-form-item>
-      <el-form-item label="步骤二、筛选条件：">
-        <el-form class="form-setting" ref="form-setting" label-width="105px" label-position="left" size="small">
-          <el-form-item class="form-setting-item" label="1、起始时间：">
-            <el-date-picker
-              v-model="dateRage"
-              type="daterange"
-              unlink-panels
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              :shortcuts="shortcuts"
-              value-format="YYYY-MM-DD"
-              format="YYYY-MM-DD"
-              size="small"
-            />
-          </el-form-item>
-          <el-form-item class="form-setting-item" label="2、标题关键词：">
-            <div class="keyowrd">
-              <el-input size="small" v-model="keywords" placeholder="请输入"></el-input>
+  <div class="a-stock-config">
+    <div class="page-header">
+      <h1 class="page-title">A股公告下载配置</h1>
+      <p class="page-subtitle">配置下载参数，开始批量下载A股公告文件</p>
+    </div>
+
+    <div class="config-sections">
+      <!-- 下载路径配置 -->
+      <section class="config-card">
+        <div class="card-header">
+          <div class="step-badge">1</div>
+          <h2 class="card-title">设置下载路径</h2>
+        </div>
+        <div class="card-body">
+          <div class="path-config">
+            <div class="path-display">
+              <div class="path-info">
+                <span class="path-label">当前路径：</span>
+                <a href="#" class="path-link" @click.prevent="openLocalPath(savePath)" v-if="savePath">
+                  {{ savePath }}
+                </a>
+                <span class="path-placeholder" v-else>未选择存储位置</span>
+              </div>
+              <button class="btn btn-secondary" @click="openSavePathDialog()">
+                <span class="btn-icon">📁</span>
+                <span>{{ savePath ? '更换位置' : '选择位置' }}</span>
+              </button>
             </div>
-          </el-form-item>
-          <el-form-item class="form-setting-item" label="3、板块：">
-            <div class="plate">
-              <el-select v-model="plate" multiple placeholder="请选择" size="small">
+          </div>
+        </div>
+      </section>
+
+      <!-- 筛选条件配置 -->
+      <section class="config-card">
+        <div class="card-header">
+          <div class="step-badge">2</div>
+          <h2 class="card-title">筛选条件</h2>
+        </div>
+        <div class="card-body">
+          <div class="filter-grid">
+            <div class="filter-item">
+              <label class="filter-label">时间范围</label>
+              <el-date-picker
+                v-model="dateRage"
+                type="daterange"
+                unlink-panels
+                range-separator="至"
+                start-placeholder="开始日期"
+                end-placeholder="结束日期"
+                :shortcuts="shortcuts"
+                value-format="YYYY-MM-DD"
+                format="YYYY-MM-DD"
+                class="modern-date-picker"
+              />
+            </div>
+
+            <div class="filter-item">
+              <label class="filter-label">标题关键词</label>
+              <el-input 
+                v-model="keywords" 
+                placeholder="输入关键词进行筛选"
+                class="modern-input"
+                clearable
+              />
+            </div>
+
+            <div class="filter-item">
+              <label class="filter-label">交易板块</label>
+              <el-select 
+                v-model="plate" 
+                multiple 
+                placeholder="选择交易板块" 
+                class="modern-select"
+                collapse-tags
+                collapse-tags-tooltip
+              >
                 <el-option v-for="item in plateOptions" :key="item.key" :label="item.value" :value="item.key" />
               </el-select>
             </div>
-          </el-form-item>
-          <el-form-item class="form-setting-item" label="4、分类：">
-            <div class="category">
-              <el-select v-model="category" multiple placeholder="请选择" size="small">
+
+            <div class="filter-item">
+              <label class="filter-label">公告分类</label>
+              <el-select 
+                v-model="category" 
+                multiple 
+                placeholder="选择公告分类" 
+                class="modern-select"
+                collapse-tags
+                collapse-tags-tooltip
+              >
                 <el-option v-for="item in categoryOptions" :key="item.key" :label="item.value" :value="item.key" />
               </el-select>
             </div>
-          </el-form-item>
-          <el-form-item class="form-setting-item" label="5、行业：">
-            <div class="industry">
-              <el-select v-model="industry" multiple placeholder="请选择" size="small">
+
+            <div class="filter-item">
+              <label class="filter-label">所属行业</label>
+              <el-select 
+                v-model="industry" 
+                multiple 
+                placeholder="选择所属行业" 
+                class="modern-select"
+                collapse-tags
+                collapse-tags-tooltip
+              >
                 <el-option v-for="item in industryOptions" :key="item.key" :label="item.value" :value="item.key" />
               </el-select>
             </div>
-          </el-form-item>
-          <el-form-item class="form-setting-item" label="6、公司筛选：">
-            <el-input
-              rows="6"
-              v-model="codes"
-              placeholder="请输入公司代码,多个请一行一个,留空为全部公司"
-              type="textarea"
-            ></el-input>
-          </el-form-item>
-        </el-form>
-      </el-form-item>
-    </el-form>
-    <div class="main-content-footer">
-      <el-button type="primary" @click="onClickNext" :loading="submitting">下一步</el-button>
+
+            <div class="filter-item full-width">
+              <label class="filter-label">
+                <span>公司筛选</span>
+                <span class="label-hint">（可选，留空下载所有公司）</span>
+              </label>
+              <el-input
+                v-model="codes"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入公司代码，每行一个&#10;例如：&#10;000001&#10;000002&#10;600000"
+                class="modern-textarea"
+                resize="vertical"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="action-footer">
+      <button 
+        class="btn btn-primary btn-lg"
+        @click="onClickNext" 
+        :disabled="submitting"
+      >
+        <span class="btn-icon" v-if="submitting">⏳</span>
+        <span class="btn-icon" v-else>🚀</span>
+        <span>{{ submitting ? '处理中...' : '下一步' }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -320,48 +395,281 @@ const onClickNext = async () => {
   }
 }
 </script>
-<style lang="less">
-.main-container {
-  .save-position {
-    margin-left: 10px;
-  }
-  .span {
-    color: #606266;
-    margin-left: 5px;
-  }
-  .main-title {
-    text-align: center;
-    margin-bottom: 20px;
-  }
-  .form-setting {
-    padding-top: 8px;
-    &-item {
-      margin-bottom: 10px;
-    }
-    label {
-      font-size: 12px;
+<style lang="less" scoped>
+.a-stock-config {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: var(--space-10);
+
+  .page-title {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-3) 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    
+    &::before {
+      content: '🇨🇳';
+      font-size: var(--font-size-2xl);
     }
   }
 
-  .data {
-    margin-top: 20px;
-    &-title {
-      text-align: center;
-      background: #1696e7;
-      color: white;
-      padding: 10px;
+  .page-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+}
+
+.config-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-10);
+}
+
+.config-card {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+  transition: box-shadow var(--transition-base);
+
+  &:hover {
+    box-shadow: var(--shadow-base);
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, var(--color-primary-light), var(--color-bg-tertiary));
+    padding: var(--space-6);
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    border-bottom: 1px solid var(--color-border-light);
+
+    .step-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--color-primary);
+      color: var(--color-text-white);
+      border-radius: var(--radius-full);
+      font-size: var(--font-size-base);
+      font-weight: var(--font-weight-bold);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .card-title {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+  }
+
+  .card-body {
+    padding: var(--space-8);
+  }
+}
+
+.path-config {
+  .path-display {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-base);
+    border: 1px solid var(--color-border-light);
+  }
+
+  .path-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+
+    .path-label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-tertiary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .path-link {
+      font-size: var(--font-size-sm);
+      color: var(--color-primary);
+      font-weight: var(--font-weight-medium);
+      text-decoration: none;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    .path-placeholder {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-quaternary);
+      font-style: italic;
     }
   }
 }
-.main-footer {
-  margin-top: 20px;
-  border-top: 1px solid #ccc;
-  padding-top: 25px;
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .filter-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+
+    .label-hint {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-regular);
+      color: var(--color-text-quaternary);
+    }
+  }
+}
+
+.action-footer {
   display: flex;
   justify-content: center;
-  align-items: center;
-  &-button {
-    width: 200px;
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--color-border-light);
+  margin-top: var(--space-8);
+}
+
+/* Element Plus 组件样式覆盖 */
+:deep(.modern-date-picker) {
+  .el-input__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+    
+    &.is-focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+:deep(.modern-input) {
+  .el-input__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+    
+    &.is-focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+:deep(.modern-select) {
+  .el-select__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+    
+    &.is-focused {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+  
+  .el-select__tags {
+    .el-tag {
+      background: var(--color-primary-light);
+      color: var(--color-primary);
+      border: none;
+      border-radius: var(--radius-sm);
+    }
+  }
+}
+
+:deep(.modern-textarea) {
+  .el-textarea__inner {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    font-family: var(--font-family-mono);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
+    }
+    
+    &:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-header .page-title {
+    font-size: var(--font-size-2xl);
+  }
+  
+  .filter-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  
+  .config-card .card-body {
+    padding: var(--space-4);
+  }
+  
+  .path-display {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
   }
 }
 </style>

@@ -1,79 +1,175 @@
 <template>
-  <div class="downloading-operation">
-    <div class="downloading-operation-left">
-      统计：共{{ total }}个
-      <br />
+  <div class="convert-tasks-page">
+    <div class="page-header">
+      <h1 class="page-title">转换任务管理</h1>
+      <p class="page-subtitle">管理和监控所有PDF文件转换任务</p>
     </div>
-    <div class="downloading-operation-right">
-      <el-select v-model="status" class="m-2" placeholder="Select" @change="onStatusChange">
-        <el-option key="all" label="全部" value="all" />
-        <el-option key="processing" label="转换中" value="processing" />
-        <el-option key="completed" label="转换成功" value="completed" />
-        <el-option key="error" label="转换失败" value="error" />
-      </el-select>
-      <el-button type="primary" @click="handleBegin">全部开始</el-button>
-      <el-button type="default" @click="handleStop">全部暂停</el-button>
-      <el-button type="danger" @click="handleDelete">全部删除</el-button>
-    </div>
-  </div>
-  <div class="downloading-content">
-    <el-table :data="tableData" style="width: 100%" v-loading="loading">
-      <el-table-column label="文件路径">
-        <template #default="scope">
-          <div class="name">{{ scope.row.sourcePath }}</div>
-        </template>
-      </el-table-column>
-      <el-table-column label="转换状态" width="120">
-        <template #default="scope">
-          <div class="status" v-if="scope.row.status === 'error'">
-            <div class="status-pending">转换出错[{{ scope.row.message }}]</div>
-          </div>
-          <div class="status" v-if="scope.row.status === 'queued'">
-            <div class="status-pending">等待中</div>
-          </div>
-          <div class="status" v-if="scope.row.status === 'processing'">
-            <div class="status-downloading">
-              <el-icon><Loading /></el-icon>
-              <div>转换中</div>
+
+    <div class="tasks-container">
+      <div class="tasks-content">
+        <div class="convert-tasks">
+          <!-- 操作控制栏 -->
+          <div class="control-panel">
+            <div class="panel-info">
+              <div class="stats-display">
+                <div class="stat-item">
+                  <span class="stat-icon">🔄</span>
+                  <span class="stat-label">任务总数</span>
+                  <span class="stat-value">{{ total }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-controls">
+              <el-select 
+                v-model="status" 
+                placeholder="筛选状态" 
+                @change="onStatusChange"
+                class="status-filter"
+              >
+                <el-option key="all" label="全部任务" value="all" />
+                <el-option key="processing" label="转换中" value="processing" />
+                <el-option key="completed" label="转换成功" value="completed" />
+                <el-option key="error" label="转换失败" value="error" />
+              </el-select>
+
+              <div class="action-buttons">
+                <button class="btn btn-primary btn-sm" @click="handleBegin">
+                  <span class="btn-icon">▶️</span>
+                  <span>全部开始</span>
+                </button>
+                <button class="btn btn-secondary btn-sm" @click="handleStop">
+                  <span class="btn-icon">⏸️</span>
+                  <span>全部暂停</span>
+                </button>
+                <button class="btn btn-ghost btn-sm" @click="handleDelete">
+                  <span class="btn-icon">🗑️</span>
+                  <span>全部删除</span>
+                </button>
+              </div>
             </div>
           </div>
-          <div class="status" v-if="scope.row.status === 'completed'">
-            <div class="status-pending" style="color: #67c23a">转换完成</div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column prop="address" label="操作" width="300">
-        <template #default="scope">
-          <el-button
-            v-if="scope.row.status === 'completed'"
-            size="small"
-            type="primary"
-            @click="handleClickOpenOne(scope.$index, scope.row)"
-          >
-            查看
-          </el-button>
 
-          <el-button
-            v-if="scope.row.status === 'error'"
-            size="small"
-            type="primary"
-            @click="handleClickOpenOrgOne(scope.$index, scope.row)"
+          <!-- 任务列表 -->
+          <div class="tasks-list">
+            <el-table 
+              :data="tableData" 
+              v-loading="loading" 
+              class="modern-tasks-table"
+              :border="false"
+              stripe
+              empty-text="暂无转换任务"
+            >
+              <el-table-column label="文件信息" min-width="400">
+                <template #default="scope">
+                  <div class="file-cell">
+                    <div class="file-icon">📄</div>
+                    <div class="file-info">
+                      <div class="file-name" :title="scope.row.sourcePath">
+                        {{ getFileName(scope.row.sourcePath) }}
+                      </div>
+                      <div class="file-path" :title="scope.row.sourcePath">
+                        {{ scope.row.sourcePath }}
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="转换状态" width="180" align="center">
+                <template #default="scope">
+                  <div class="status-cell">
+                    <!-- 错误状态 -->
+                    <div v-if="scope.row.status === 'error'" class="status-badge error">
+                      <span class="status-icon">❌</span>
+                      <span class="status-text">转换失败</span>
+                    </div>
+                    
+                    <!-- 等待状态 -->
+                    <div v-else-if="scope.row.status === 'queued'" class="status-badge queued">
+                      <span class="status-icon">⏳</span>
+                      <span class="status-text">等待中</span>
+                    </div>
+                    
+                    <!-- 转换中状态 -->
+                    <div v-else-if="scope.row.status === 'processing'" class="status-badge processing">
+                      <el-icon class="rotating status-icon"><Loading /></el-icon>
+                      <span class="status-text">转换中</span>
+                    </div>
+                    
+                    <!-- 完成状态 -->
+                    <div v-else-if="scope.row.status === 'completed'" class="status-badge completed">
+                      <span class="status-icon">✅</span>
+                      <span class="status-text">转换完成</span>
+                    </div>
+                  </div>
+                </template>
+              </el-table-column>
+
+              <el-table-column label="操作" width="240" align="center">
+                <template #default="scope">
+                  <div class="action-cell">
+                    <!-- 查看转换结果 -->
+                    <button 
+                      v-if="scope.row.status === 'completed'"
+                      class="btn btn-primary btn-xs"
+                      @click="handleClickOpenOne(scope.$index, scope.row)"
+                    >
+                      <span class="btn-icon">👁️</span>
+                      <span>查看结果</span>
+                    </button>
+                    
+                    <!-- 查看原始文件 -->
+                    <button 
+                      v-if="scope.row.status === 'error'"
+                      class="btn btn-secondary btn-xs"
+                      @click="handleClickOpenOrgOne(scope.$index, scope.row)"
+                    >
+                      <span class="btn-icon">📁</span>
+                      <span>查看原文件</span>
+                    </button>
+                    
+                    <!-- 删除按钮 -->
+                    <button 
+                      class="btn btn-ghost btn-xs"
+                      @click="handleDeleteOne(scope.row)"
+                    >
+                      <span class="btn-icon">🗑️</span>
+                      <span>删除</span>
+                    </button>
+                  </div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <!-- 删除确认对话框 -->
+          <el-dialog 
+            v-model="deleteAllVisible" 
+            title="确认删除" 
+            width="450px"
+            class="modern-dialog"
           >
-            查看原始文件
-          </el-button>
-          <el-button size="small" type="danger" @click="handleDeleteOne(scope.row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-dialog v-model="deleteAllVisible" title="二次确认" width="400">
-      <span>确定删除全部转换任务？</span>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="deleteAllVisible = false">取消</el-button>
-          <el-button type="primary" @click="confirmDeleteAll">确定</el-button>
-        </span>
-      </template>
-    </el-dialog>
+            <div class="confirm-content">
+              <div class="confirm-icon">⚠️</div>
+              <div class="confirm-text">
+                <h3>确定删除全部转换任务吗？</h3>
+                <p>此操作将删除所有转换任务记录</p>
+              </div>
+            </div>
+            
+            <template #footer>
+              <div class="dialog-actions">
+                <button class="btn btn-ghost" @click="deleteAllVisible = false">取消</button>
+                <button class="btn btn-primary" @click="confirmDeleteAll">
+                  <span>确认删除</span>
+                </button>
+              </div>
+            </template>
+          </el-dialog>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 <script lang="ts" setup>
@@ -222,39 +318,336 @@ const handleClickOpenOrgOne = (index: number, item: any) => {
   console.log(item)
   electron.shell.showItemInFolder(item.sourcePath)
 }
+
+const getFileName = (fullPath: string) => {
+  if (!fullPath) return ''
+  const parts = fullPath.replace(/\\/g, '/').split('/')
+  return parts[parts.length - 1] || ''
+}
 </script>
-<style lang="less">
-.downloading-operation {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ccc;
-  .downloading-operation-left {
-    font-size: 14px;
-    font-weight: bold;
-  }
-  .downloading-operation-right {
+<style lang="less" scoped>
+.convert-tasks-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+
+  .page-title {
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-3) 0;
     display: flex;
     align-items: center;
-    .el-button {
-      margin-left: 10px;
+    justify-content: center;
+    gap: var(--space-3);
+    
+    &::before {
+      content: '🔄';
+      font-size: var(--font-size-2xl);
+    }
+  }
+
+  .page-subtitle {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+}
+
+.tasks-container {
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.tasks-content {
+  padding: var(--space-6);
+}
+
+.convert-tasks {
+  .control-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border-light);
+    margin-bottom: var(--space-6);
+
+    .panel-info {
+      .stats-display {
+        .stat-item {
+          display: flex;
+          align-items: center;
+          gap: var(--space-2);
+          background: var(--color-warning-light);
+          color: var(--color-warning);
+          padding: var(--space-2) var(--space-4);
+          border-radius: var(--radius-full);
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          border: 1px solid rgba(255, 149, 0, 0.2);
+
+          .stat-icon {
+            font-size: var(--font-size-base);
+          }
+
+          .stat-value {
+            font-weight: var(--font-weight-bold);
+          }
+        }
+      }
+    }
+
+    .panel-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+
+      .status-filter {
+        min-width: 120px;
+      }
+
+      .action-buttons {
+        display: flex;
+        gap: var(--space-2);
+      }
+    }
+  }
+
+  .tasks-list {
+    .file-cell {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+
+      .file-icon {
+        font-size: var(--font-size-lg);
+        flex-shrink: 0;
+      }
+
+      .file-info {
+        flex: 1;
+        overflow: hidden;
+
+        .file-name {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-medium);
+          color: var(--color-text-primary);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-bottom: var(--space-1);
+        }
+
+        .file-path {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-quaternary);
+          font-family: var(--font-family-mono);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .status-cell {
+      .status-badge {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-full);
+        font-size: var(--font-size-xs);
+        font-weight: var(--font-weight-medium);
+        white-space: nowrap;
+
+        &.error {
+          background: var(--color-error-light);
+          color: var(--color-error);
+          border: 1px solid rgba(255, 59, 48, 0.2);
+        }
+
+        &.queued {
+          background: var(--color-gray-100);
+          color: var(--color-text-tertiary);
+          border: 1px solid var(--color-border-medium);
+        }
+
+        &.processing {
+          background: var(--color-warning-light);
+          color: var(--color-warning);
+          border: 1px solid rgba(255, 149, 0, 0.2);
+          
+          .status-icon {
+            &.rotating {
+              animation: rotate 2s linear infinite;
+            }
+          }
+        }
+
+        &.completed {
+          background: var(--color-success-light);
+          color: #34c759;
+          border: 1px solid rgba(52, 199, 89, 0.25);
+        }
+
+        .status-icon {
+          font-size: var(--font-size-sm);
+        }
+      }
+    }
+
+    .action-cell {
+      display: flex;
+      gap: var(--space-2);
+      justify-content: center;
+      flex-wrap: wrap;
     }
   }
 }
-.downloading-content {
-  padding-top: 10px;
-  .status {
-    font-size: 12px;
-    &-downloading {
-      display: flex;
-      font-size: 12px;
-      justify-content: space-evenly;
+
+/* Element Plus 组件样式覆盖 */
+:deep(.status-filter) {
+  .el-select__wrapper {
+    border-radius: var(--radius-base);
+    box-shadow: var(--shadow-xs);
+    border: 1px solid var(--color-border-medium);
+    transition: all var(--transition-fast);
+    
+    &:hover {
+      border-color: var(--color-border-dark);
     }
-    &-complete {
-      display: flex;
-      font-size: 12px;
-      justify-content: space-evenly;
+    
+    &.is-focused {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+  }
+}
+
+:deep(.modern-tasks-table) {
+  .el-table__header {
+    th {
+      background: var(--color-bg-secondary);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-semibold);
+      border-bottom: 2px solid var(--color-border-light);
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  .el-table__body {
+    tr {
+      &:hover {
+        background: var(--color-bg-tertiary);
+      }
+
+      td {
+        border-bottom: 1px solid var(--color-border-light);
+        padding: var(--space-4);
+      }
+    }
+
+    .el-table__row--striped {
+      background: rgba(255, 149, 0, 0.02);
+    }
+  }
+
+  .el-table__empty-text {
+    color: var(--color-text-quaternary);
+    font-size: var(--font-size-sm);
+  }
+}
+
+/* 确认对话框样式 */
+.confirm-content {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+
+  .confirm-icon {
+    font-size: var(--font-size-3xl);
+    flex-shrink: 0;
+  }
+
+  .confirm-text {
+    flex: 1;
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--space-2) 0;
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin: 0;
+      line-height: var(--line-height-relaxed);
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-header .page-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .tasks-content {
+    padding: var(--space-4);
+  }
+
+  .convert-tasks {
+    .control-panel {
+      flex-direction: column;
+      gap: var(--space-4);
+      align-items: stretch;
+
+      .panel-controls {
+        flex-direction: column;
+        gap: var(--space-3);
+
+        .action-buttons {
+          justify-content: center;
+        }
+      }
+    }
+
+    .file-cell {
+      .file-info {
+        .file-name {
+          font-size: var(--font-size-xs);
+        }
+      }
+    }
+
+    .action-cell {
+      flex-direction: column;
+      gap: var(--space-1);
     }
   }
 }
